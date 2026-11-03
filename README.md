@@ -14,3 +14,7 @@ Status: skeleton. The engine lands in the first feature PR.
 ```bash
 composer install && composer test && composer lint
 ```
+
+## License
+
+MIT, see [LICENSE](LICENSE).
