@@ -68,7 +68,7 @@ final class OpenApi
                 ]));
             }
             $member = "/{$slug}/{id}";
-            $idParameter = ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => $d->keyType === 'integer' ? 'integer' : 'string']];
+            $idParameter = $this->idParameter($d);
             if ($d->has('show')) {
                 $paths[$member]['get'] = $resource->openApi('show', $this->operation($d, 'show', [
                     'parameters' => [$idParameter, ...$this->showParameters($d)],
@@ -149,6 +149,7 @@ final class OpenApi
             'operationId' => Str::camel($operation->name.'-'.$d->slug),
             'summary' => $operation->summary,
             'description' => $operation->description,
+            'parameters' => str_contains($operation->path, '{id}') ? [$this->idParameter($d)] : null,
             'requestBody' => $operation->request !== null ? ['required' => true, 'content' => ['application/json' => ['schema' => $operation->request]]] : null,
             'responses' => ($responses ?: ['200' => ['description' => 'OK.']]) + $this->errors([401, 403, 422, 429]),
         ]));
@@ -261,6 +262,12 @@ final class OpenApi
         }
 
         return $parameters;
+    }
+
+    /** @return array<string, mixed> */
+    private function idParameter(Descriptor $d): array
+    {
+        return ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => $d->keyType === 'integer' ? 'integer' : 'string']];
     }
 
     /** @return array<string, mixed> */

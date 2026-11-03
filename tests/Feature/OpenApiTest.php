@@ -21,6 +21,8 @@ it('builds an OpenAPI 3.1 document from the descriptors', function () {
         ->and($spec['components']['schemas']['ThingCreate']['required'])->toBe(['name'])
         ->and($spec['components']['schemas']['ThingCreate']['additionalProperties'])->toBeFalse();
 
+    expect($spec['paths']['/things/{id}/touch']['post']['parameters'][0])->toMatchArray(['name' => 'id', 'in' => 'path', 'required' => true]);
+
     $names = array_column($spec['paths']['/things']['get']['parameters'], 'name');
     expect($names)->toContain('filter[status]', 'filter[weight][gte]', 'sort', 'fields[things]', 'per_page')
         ->not->toContain('filter[status][gte]');
@@ -55,5 +57,6 @@ it('renders the Swagger UI page with a pinned, integrity-checked swagger-ui', fu
     $this->get('/api-docs')->assertOk()
         ->assertSee('https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.29.1/swagger-ui-bundle.min.js', false)
         ->assertSee('integrity="sha512-', false)
-        ->assertSee(json_encode(url('api/v2/openapi.json')), false);
+        ->assertSee(json_encode(url('api/v2/openapi.json')), false)
+        ->assertSee('<title>API</title>', false);
 });

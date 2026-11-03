@@ -131,7 +131,9 @@ key is a 422 `unknown_attribute`, a read-only one (or a create-only one on updat
 that throws one of `rest-base.refusals`, by default `LogicException` and `InvalidArgumentException`) is a 422
 `refused` with its message, not a 500. Those two classes are broad (PHP and libraries throw them too, with
 messages written for developers): for a public API, set `rest-base.refusals` to an exception class of your own. The app's own 401, 403, 404 and 429 (with `Retry-After`) under the prefix
-come in the same shape.
+come in the same shape; a response the app throws itself (`HttpResponseException`) is sent as it is. Only an
+integrity constraint (SQLSTATE 23) is a 422 `constraint_violation` or `has_dependent_records`; any other database
+error is a reported 500.
 
 ## Roles
 

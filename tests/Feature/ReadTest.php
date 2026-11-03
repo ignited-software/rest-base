@@ -3,6 +3,8 @@
 use Ignited\RestBase\Tests\Fixtures\Owner;
 use Ignited\RestBase\Tests\Fixtures\Part;
 use Ignited\RestBase\Tests\Fixtures\Thing;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Facades\Route;
 
 beforeEach(function () {
     $this->owner = Owner::query()->create(['name' => 'Ann']);
@@ -128,4 +130,13 @@ it('runs authorize on a list, and on every embedded record, so an embed never sh
     Thing::query()->create(['name' => 'sealed', 'owner_id' => $this->owner->id]);
     $this->api('GET', "/api/v2/owners/{$this->owner->id}?include=things")->assertOk()
         ->assertJsonCount(1, 'data.things')->assertJsonPath('data.things.0.name', 'lamp');
+});
+
+it('lets an HttpResponseException send its own response, and hides the model class of a findOrFail', function () {
+    Route::get('api/v2/teapot', fn () => throw new HttpResponseException(response()->json(['brewing' => true], 418)));
+    Route::get('api/v2/lookup', fn () => Thing::query()->findOrFail(999));
+
+    $this->api('GET', '/api/v2/teapot')->assertStatus(418)->assertExactJson(['brewing' => true]);
+    $res = $this->api('GET', '/api/v2/lookup')->assertNotFound()->assertJsonPath('error.message', 'No such record.');
+    expect($res->getContent())->not->toContain('Fixtures');
 });

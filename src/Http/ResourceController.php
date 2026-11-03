@@ -111,8 +111,10 @@ class ResourceController
         }
         try {
             $model->delete();
-        } catch (QueryException) {
-            throw ApiException::invalid('has_dependent_records', "The database refused to delete this {$d->slug} record: other records still point at it.");
+        } catch (QueryException $e) {
+            throw self::isConstraint($e)
+                ? ApiException::invalid('has_dependent_records', "The database refused to delete this {$d->slug} record: other records still point at it.")
+                : $e;
         } catch (\Throwable $e) {
             throw $this->refusal($e);
         }
@@ -276,11 +278,19 @@ class ResourceController
     {
         try {
             $model->save();
-        } catch (QueryException) {
-            throw ApiException::invalid('constraint_violation', 'The database refused this write: a unique, foreign-key or required column constraint was violated.');
+        } catch (QueryException $e) {
+            throw self::isConstraint($e)
+                ? ApiException::invalid('constraint_violation', 'The database refused this write: a unique, foreign-key or required column constraint was violated.')
+                : $e;
         } catch (\Throwable $e) {
             throw $this->refusal($e);
         }
+    }
+
+    /** SQLSTATE class 23, an integrity constraint; anything else (a lost connection, a deadlock) stays a reported 500. */
+    protected static function isConstraint(QueryException $e): bool
+    {
+        return str_starts_with((string) $e->getCode(), '23');
     }
 
     /**

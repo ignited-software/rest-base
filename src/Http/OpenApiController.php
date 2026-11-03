@@ -20,7 +20,7 @@ class OpenApiController
     public function ui(): View
     {
         return view('rest-base::swagger', [
-            'title' => (string) config('rest-base.docs.title', config('rest-base.openapi.title', 'API')),
+            'title' => (string) (config('rest-base.docs.title') ?: config('rest-base.openapi.title') ?: 'API'),
             'specUrl' => route(config('rest-base.route_name', 'rest-base.').'openapi'),
             'cdn' => (array) config('rest-base.docs.swagger_ui'),
         ]);

@@ -5,6 +5,7 @@ namespace Ignited\RestBase;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -27,7 +28,8 @@ final class ErrorRenderer
 
     public static function render(Throwable $e, Request $request): ?JsonResponse
     {
-        if (! self::applies($request)) {
+        // an HttpResponseException carries its own response (abort(response(...)), a FormRequest): Laravel sends it
+        if (! self::applies($request) || $e instanceof HttpResponseException) {
             return null;
         }
         $error = self::toApi($e);
@@ -44,7 +46,8 @@ final class ErrorRenderer
             $e instanceof ApiException => $e,
             $e instanceof AuthenticationException => new ApiException(401, null, 'Send a valid token: Authorization: Bearer <token>.'),
             $e instanceof AuthorizationException => new ApiException(403, null, $e->getMessage() ?: 'This caller may not do this.'),
-            $e instanceof ModelNotFoundException => new ApiException(404, null, 'No such record.'),
+            // Laravel wraps these in an HttpException before the callbacks run; the wrapped message names the model class
+            $e instanceof ModelNotFoundException, $e->getPrevious() instanceof ModelNotFoundException => new ApiException(404, null, 'No such record.'),
             $e instanceof ValidationException => new ApiException(422, 'invalid_attributes', $e->getMessage(), $e->errors()),
             $e instanceof HttpExceptionInterface => new ApiException(
                 $e->getStatusCode(),
