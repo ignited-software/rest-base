@@ -8,8 +8,8 @@ use LogicException;
 /**
  * The resources on the API, opt-in per model in config rest-base.resources (slug => ApiResource class). Every
  * descriptor is checked when the registry is built, so a mistake fails at boot (and in the test suite), not on a
- * request: no attribute may be secret, every writable attribute must be fillable, every name a filter, sort or
- * relationship uses must exist.
+ * request: no attribute may be secret (or left out of a `$visible` list), every writable attribute must be fillable,
+ * every name a filter, sort, unique set or relationship uses must exist.
  */
 final class Registry
 {
@@ -61,7 +61,7 @@ final class Registry
         return $this->resources[$slug] ?? throw new LogicException("No API resource '{$slug}'.");
     }
 
-    /** @return list<string> the column names a model never lets out: hidden, encrypted or hashed */
+    /** @return list<string> the column names a model never lets out: hidden, encrypted or hashed (see also $visible in check()) */
     public static function secretColumns(Model $model): array
     {
         $secret = $model->getHidden();
@@ -82,9 +82,13 @@ final class Registry
             $fail('declare the key with ->id().');
         }
         $secret = self::secretColumns($model);
+        $visible = $model->getVisible();
         foreach ($d->attributes as $name => $attribute) {
             if ($attribute->value === null && in_array($name, $secret, true)) {
                 $fail("'{$name}' is hidden, encrypted or hashed on ".$model::class.' and can never be exposed.');
+            }
+            if ($attribute->value === null && $visible !== [] && ! in_array($name, $visible, true)) {
+                $fail("'{$name}' is not in the \$visible list of ".$model::class.' and can never be exposed.');
             }
             if ($attribute->isWritable() && ! $model->isFillable($name)) {
                 $fail("'{$name}' is writable here but not fillable on ".$model::class.'.');
@@ -116,6 +120,13 @@ final class Registry
             }
             if (! $relation->isToOne() && $relation->foreignKey !== null && ! array_key_exists($relation->foreignKey, $target->filters)) {
                 $fail("relationship '{$name}': '{$relation->resource}' must make '{$relation->foreignKey}' filterable for the link.");
+            }
+        }
+        foreach ($d->unique as $columns) {
+            foreach ($columns as $column) {
+                if (($d->attributes[$column] ?? null)?->value !== null || ! isset($d->attributes[$column])) {
+                    $fail("unique column '{$column}' is not a declared (stored) attribute.");
+                }
             }
         }
         foreach ($d->dependents as $name) {

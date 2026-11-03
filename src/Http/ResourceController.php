@@ -28,6 +28,7 @@ class ResourceController
     {
         [$d, $resource] = $this->resolve($request);
         $q = QueryParams::forIndex($request, $d, $this->registry);
+        $resource->authorize('index', $request, null);
 
         $query = $resource->query($request);
         $q->applyFilters($query, $d);

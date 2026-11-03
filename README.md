@@ -70,10 +70,12 @@ a backed enum class), and `computed` (read-only, from a closure). Per attribute:
 
 Building the registry fails (so the app and its tests fail) when a descriptor:
 
-- names an attribute the model hides, encrypts or hashes (`$hidden`, `encrypted*`, `hashed` casts): **secrets can
-  never be declared**, so they can never be serialised;
+- names an attribute the model hides, encrypts or hashes (`$hidden`, `encrypted*`, `hashed` casts), or one a
+  model with a `$visible` list leaves out: **secrets can never be declared**, so they can never be serialised,
+  filtered or sorted on;
 - makes an attribute writable that the model's `$fillable` does not allow;
-- filters, sorts or relates on a name it does not declare, or points a relationship at an unregistered resource;
+- filters, sorts, sets a unique set or relates on a name it does not declare, or points a relationship at an
+  unregistered resource;
 - links a has-many whose foreign key the target does not make filterable.
 
 ### Hooks (override in the ApiResource)
@@ -81,13 +83,19 @@ Building the registry fails (so the app and its tests fail) when a descriptor:
 | Method | Default | For |
 |---|---|---|
 | `query(Request)` | `Model::query()` | row rules: every list, find and embed starts here |
-| `authorize($action, Request, ?Model)` | allow | policies, per-record refusals (throw) |
+| `authorize($action, Request, ?Model)` | allow | policies, per-record refusals (throw); runs on every action (`index` and `create` with no record) and on every embedded record (`show`), which is left out when refused |
 | `fill(Model, array, Request, $action)` | `$model->fill()` | attribution, derived columns |
 | `controller()` | `ResourceController` | a subclass that changes one action |
 | `openApi($action, array)` | unchanged | add to the generated operation |
 
 Extra endpoints (`POST /repos/sync`) are `Operation`s on the descriptor: same prefix, middleware, role check and
-error shape, and documented in the OpenAPI document; the handler is the app's.
+error shape, and documented in the OpenAPI document; the handler is the app's. An operation without its own
+`roles` takes the resource's `create` roles (a `GET` one its `index` roles): give a sensitive one (an approve, a
+confirm) its own narrower `roles`.
+
+`exists: 'table'` checks that the id names a row of that table, any row: it does not go through the target
+resource's `query()`. Where row rules matter (one tenant may not point at another's record), add your own rule
+in `rules`.
 
 ## The wire format
 
@@ -98,7 +106,7 @@ error shape, and documented in the OpenAPI document; the handler is the app's.
 | Filter | `?filter[owner]=a,b` (comma = any of), `?filter[created_at][gte]=2026-01-01` (`gte`, `gt`, `lte`, `lt` on range filters) |
 | Sort | `?sort=owner,-created_at` (`-` = descending); the key breaks ties |
 | Fields | `?fields[repos]=owner,name&fields[projects]=slug` (`id` always kept; `links` and embeds only when named) |
-| Pages | `?page=2&per_page=100`; default 100, maximum 1000 (above it is lowered, not refused) |
+| Pages | `?page=2&per_page=100`; default 100, maximum 1000 (above it is lowered, not refused); `page` at most 999999999 |
 | Create | `POST` `{data: {...}}` → 201, `Location`, the record |
 | Update | `PATCH` (or `PUT`, the same) `{data: {...}}`: a partial merge; left-out attributes keep their value, `null` clears |
 | Delete | 204; 422 `has_dependent_records` while dependents exist, never a cascade |
@@ -121,7 +129,8 @@ key is a 422 `unknown_attribute`, a read-only one (or a create-only one on updat
 
 **400 only** for unparseable JSON or a missing `data` wrapper. A model's own guard (a `saving` or `deleting` hook
 that throws one of `rest-base.refusals`, by default `LogicException` and `InvalidArgumentException`) is a 422
-`refused` with its message, not a 500. The app's own 401, 403, 404 and 429 (with `Retry-After`) under the prefix
+`refused` with its message, not a 500. Those two classes are broad (PHP and libraries throw them too, with
+messages written for developers): for a public API, set `rest-base.refusals` to an exception class of your own. The app's own 401, 403, 404 and 429 (with `Retry-After`) under the prefix
 come in the same shape.
 
 ## Roles

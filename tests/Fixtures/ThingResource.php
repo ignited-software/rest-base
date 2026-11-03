@@ -2,10 +2,12 @@
 
 namespace Ignited\RestBase\Tests\Fixtures;
 
+use Ignited\RestBase\ApiException;
 use Ignited\RestBase\ApiResource;
 use Ignited\RestBase\Descriptor;
 use Ignited\RestBase\Operation;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 
 class ThingResource extends ApiResource
@@ -44,5 +46,13 @@ class ThingResource extends ApiResource
     {
         // a row rule: archived things are not on the API at all
         return Thing::query()->where('name', '!=', 'hidden-row');
+    }
+
+    /** A per-record refusal beyond query(): a sealed thing cannot be read. */
+    public function authorize(string $action, Request $request, ?Model $model): void
+    {
+        if ($action === 'show' && $model?->getAttribute('name') === 'sealed') {
+            throw new ApiException(403, null, 'This thing is sealed.');
+        }
     }
 }

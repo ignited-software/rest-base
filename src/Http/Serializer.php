@@ -2,19 +2,22 @@
 
 namespace Ignited\RestBase\Http;
 
+use Ignited\RestBase\ApiException;
 use Ignited\RestBase\Descriptor;
 use Ignited\RestBase\Registry;
 use Ignited\RestBase\Relationship;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
  * Turns records into their wire form, always through a descriptor: only allowlisted attributes, never the model's
  * own toArray(). A list shows the summary (no show-only attributes, no embeds); a record shows everything, with
  * its belongs-to records embedded (as their own summary) and has-many records when asked for with ?include.
- * An embedded record is read through its own resource's query and role check, so an embed never shows a row or
- * a field the caller could not read directly.
+ * An embedded record is read through its own resource's query, role check and authorize('show'), so an embed
+ * never shows a row or a field the caller could not read directly.
  */
 final class Serializer
 {
@@ -92,7 +95,7 @@ final class Serializer
             $key = $model->getAttribute($relation->foreignKey);
             $related = $key === null ? null : $query->whereKey($key)->first();
 
-            return $related === null ? null : $this->record($target, $related, false, $q);
+            return $related === null || ! $this->permits($relation->resource, $related) ? null : $this->record($target, $related, false, $q);
         }
 
         $limit = $target->maxPerPage ?? (int) config('rest-base.pagination.max_per_page', 1000);
@@ -104,6 +107,24 @@ final class Serializer
         }
 
         return $query->orderBy($query->getModel()->getQualifiedKeyName())->limit($limit)->get()
-            ->map(fn (Model $child) => $this->record($target, $child, false, $q))->all();
+            ->filter(fn (Model $child) => $this->permits($relation->resource, $child))
+            ->map(fn (Model $child) => $this->record($target, $child, false, $q))->values()->all();
+    }
+
+    /** The target resource's own per-record refusal (authorize 'show') holds for an embed: a refused record is left out. */
+    private function permits(string $slug, Model $related): bool
+    {
+        try {
+            $this->registry->resource($slug)->authorize('show', $this->request, $related);
+        } catch (AuthorizationException|HttpExceptionInterface) {
+            return false;
+        } catch (ApiException $e) {
+            if (in_array($e->status, [403, 404], true)) {
+                return false;
+            }
+            throw $e;
+        }
+
+        return true;
     }
 }

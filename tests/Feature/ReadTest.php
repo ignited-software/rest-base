@@ -62,6 +62,7 @@ it('refuses unknown or malformed query parameters with a 422 and a reason', func
     ['fields[ghosts]=id', 'unknown_field'],
     ['include=parts', 'include_not_supported_on_index'],
     ['page=0', 'invalid_page'],
+    ['page=99999999999999999999', 'invalid_page'],
     ['per_page=abc', 'invalid_page'],
     ['color=red', 'unknown_parameter'],
 ]);
@@ -114,4 +115,17 @@ it('lets only callers with one of the declared roles in', function () {
 it('runs an operation through the same role check', function () {
     $this->api('POST', "/api/v2/things/{$this->thing->id}/touch")->assertOk()->assertJsonPath('data.touched', $this->thing->id);
     $this->api('POST', "/api/v2/things/{$this->thing->id}/touch", roles: 'visitor')->assertForbidden();
+});
+
+it('runs authorize on a list, and on every embedded record, so an embed never shows a refused row', function () {
+    $this->withServerVariables(['HTTP_X_REFUSE' => 'index'])->api('GET', '/api/v2/owners')->assertForbidden();
+
+    $private = Owner::query()->create(['name' => 'Private']);
+    $mine = Thing::query()->create(['name' => 'chair', 'owner_id' => $private->id]);
+    $this->api('GET', "/api/v2/owners/{$private->id}")->assertForbidden();
+    $this->api('GET', "/api/v2/things/{$mine->id}")->assertOk()->assertJsonPath('data.owner', null);
+
+    Thing::query()->create(['name' => 'sealed', 'owner_id' => $this->owner->id]);
+    $this->api('GET', "/api/v2/owners/{$this->owner->id}?include=things")->assertOk()
+        ->assertJsonCount(1, 'data.things')->assertJsonPath('data.things.0.name', 'lamp');
 });

@@ -41,9 +41,10 @@ final class QueryParams
     public static function forIndex(Request $request, Descriptor $d, Registry $registry): self
     {
         $q = new self;
-        $q->keys($request, self::INDEX_KEYS, $request->has('include')
-            ? ApiException::invalid('include_not_supported_on_index', 'include is only supported on a single record; a list shows foreign keys and links.')
-            : null);
+        if ($request->has('include')) {
+            throw ApiException::invalid('include_not_supported_on_index', 'include is only supported on a single record; a list shows foreign keys and links.');
+        }
+        $q->keys($request, self::INDEX_KEYS);
         $q->fields = self::fields($request, $registry);
         $q->filters = self::filters($request, $d);
         $q->sort = self::sort($request, $d);
@@ -96,11 +97,8 @@ final class QueryParams
         return $this->fields[$slug] ?? null;
     }
 
-    private function keys(Request $request, array $allowed, ?ApiException $first = null): void
+    private function keys(Request $request, array $allowed): void
     {
-        if ($first !== null) {
-            throw $first;
-        }
         $unknown = array_diff(array_keys($request->query()), $allowed);
         if ($unknown !== []) {
             throw ApiException::invalid('unknown_parameter', 'Unknown query parameter: '.implode(', ', $unknown).'. Allowed here: '.implode(', ', $allowed).'.');
@@ -242,8 +240,9 @@ final class QueryParams
             if ($value === null) {
                 return $fallback;
             }
-            if (! is_string($value) || ! preg_match('/^\d+$/', $value) || (int) $value < 1) {
-                throw ApiException::invalid('invalid_page', "{$key} must be a whole number of 1 or more.");
+            // at most nine digits: a page number past that only overflows the offset (a 500), it never finds rows
+            if (! is_string($value) || ! preg_match('/^\d{1,9}$/', $value) || (int) $value < 1) {
+                throw ApiException::invalid('invalid_page', "{$key} must be a whole number from 1 to 999999999.");
             }
 
             return (int) $value;
