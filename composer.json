@@ -1,0 +1,40 @@
+{
+    "name": "ignited/rest-base",
+    "description": "A descriptor-driven JSON REST API for Eloquent models, with a generated OpenAPI 3.1 document and a Swagger UI page.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.3",
+        "illuminate/database": "^12.0|^13.0",
+        "illuminate/http": "^12.0|^13.0",
+        "illuminate/routing": "^12.0|^13.0",
+        "illuminate/support": "^12.0|^13.0",
+        "illuminate/validation": "^12.0|^13.0",
+        "illuminate/view": "^12.0|^13.0"
+    },
+    "autoload": {
+        "psr-4": { "Ignited\\RestBase\\": "src/" }
+    },
+    "autoload-dev": {
+        "psr-4": { "Ignited\\RestBase\\Tests\\": "tests/" }
+    },
+    "extra": {
+        "laravel": { "providers": ["Ignited\\RestBase\\RestBaseServiceProvider"] }
+    },
+    "scripts": {
+        "test": "pest",
+        "lint": "pint --test"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": { "pestphp/pest-plugin": true }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "require-dev": {
+        "laravel/pint": "^1.32",
+        "orchestra/testbench": "^11.3",
+        "pestphp/pest": "^5.3",
+        "pestphp/pest-plugin-laravel": "^5.0"
+    }
+}
