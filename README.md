@@ -165,3 +165,7 @@ An embedded record is shown only when the caller may read its resource.
 ```bash
 composer install && composer test && composer lint
 ```
+
+## License
+
+MIT, see [LICENSE](LICENSE).
