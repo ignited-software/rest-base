@@ -232,7 +232,10 @@ final class Descriptor
         return $this;
     }
 
-    /** Relation methods that must be empty before a delete: otherwise a 422 `has_dependent_records`, never a cascade. */
+    /**
+     * What must be empty before a delete (a relation method of the model, or a has-many relationship's name):
+     * otherwise a 422 `has_dependent_records`, never a cascade.
+     */
     public function dependents(string ...$relations): self
     {
         $this->dependents = array_values(array_unique([...$this->dependents, ...$relations]));

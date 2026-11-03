@@ -99,10 +99,10 @@ class ResourceController
         $resource->authorize('destroy', $request, $model);
 
         $dependents = [];
-        foreach ($d->dependents as $relation) {
-            $count = $model->{$relation}()->count();
+        foreach ($d->dependents as $name) {
+            $count = $this->dependentCount($d, $model, $name);
             if ($count > 0) {
-                $dependents[$relation] = ["{$count} record(s) still depend on this one."];
+                $dependents[$name] = ["{$count} record(s) still depend on this one."];
             }
         }
         if ($dependents !== []) {
@@ -117,6 +117,17 @@ class ResourceController
         }
 
         return response()->noContent();
+    }
+
+    /** Rows that still point at a record: through the model's relation method, else the has-many relationship's foreign key. */
+    protected function dependentCount(Descriptor $d, Model $model, string $name): int
+    {
+        if (method_exists($model, $name)) {
+            return $model->{$name}()->count();
+        }
+        $relation = $d->relationships[$name];
+
+        return $this->registry->resource($relation->resource)->model()::query()->where($relation->foreignKey, $model->getKey())->count();
     }
 
     /** @return array{0: Descriptor, 1: ApiResource} */

@@ -108,7 +108,7 @@ final class Registry
                 $fail("relationship '{$name}' has the name of an attribute.");
             }
             $target = $this->descriptors[$relation->resource] ?? $fail("relationship '{$name}' points at '{$relation->resource}', which is not registered.");
-            if (! method_exists($model, $relation->method())) {
+            if ((! $relation->isToOne() && $relation->foreignKey === null || $relation->method !== null) && ! method_exists($model, $relation->method())) {
                 $fail("relationship '{$name}': ".$model::class." has no method {$relation->method()}().");
             }
             if ($relation->isToOne() && ! isset($d->attributes[$relation->foreignKey])) {
@@ -118,9 +118,10 @@ final class Registry
                 $fail("relationship '{$name}': '{$relation->resource}' must make '{$relation->foreignKey}' filterable for the link.");
             }
         }
-        foreach ($d->dependents as $method) {
-            if (! method_exists($model, $method)) {
-                $fail('dependent '.$method.'(): '.$model::class.' has no such relation.');
+        foreach ($d->dependents as $name) {
+            $relation = $d->relationships[$name] ?? null;
+            if (! method_exists($model, $name) && ($relation === null || $relation->isToOne() || $relation->foreignKey === null)) {
+                $fail("dependent '{$name}': neither a relation method of ".$model::class.' nor a has-many relationship with a foreign key.');
             }
         }
         foreach ($d->operations as $operation) {

@@ -22,7 +22,7 @@ it('builds an OpenAPI 3.1 document from the descriptors', function () {
         ->and($spec['components']['schemas']['ThingCreate']['additionalProperties'])->toBeFalse();
 
     $names = array_column($spec['paths']['/things']['get']['parameters'], 'name');
-    expect($names)->toContain('filter[status]', 'filter[weight][gte]', 'sort', 'fields[things]', 'page', 'per_page')
+    expect($names)->toContain('filter[status]', 'filter[weight][gte]', 'sort', 'fields[things]', 'per_page')
         ->not->toContain('filter[status][gte]');
 });
 

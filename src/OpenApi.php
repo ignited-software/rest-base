@@ -104,6 +104,10 @@ final class OpenApi
             'paths' => $paths ?: (object) [],
             'components' => array_filter([
                 'schemas' => $schemas,
+                'responses' => $this->errorResponses(),
+                'parameters' => [
+                    'page' => ['name' => 'page', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1, 'default' => 1]],
+                ],
                 'securitySchemes' => config('rest-base.openapi.security_schemes') ?: null,
             ]),
         ];
@@ -237,7 +241,7 @@ final class OpenApi
                 .($d->defaultSort ? " Default: {$d->defaultSort}." : ''), 'schema' => ['type' => 'string']];
         }
         $parameters[] = $this->fieldsParameter($d);
-        $parameters[] = ['name' => 'page', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1, 'default' => 1]];
+        $parameters[] = ['$ref' => '#/components/parameters/page'];
         $parameters[] = ['name' => 'per_page', 'in' => 'query', 'description' => 'Above the maximum it is lowered to the maximum.', 'schema' => [
             'type' => 'integer', 'minimum' => 1,
             'default' => $d->perPage ?? (int) config('rest-base.pagination.per_page', 100),
@@ -262,7 +266,7 @@ final class OpenApi
     /** @return array<string, mixed> */
     private function fieldsParameter(Descriptor $d): array
     {
-        return ['name' => "fields[{$d->slug}]", 'in' => 'query', 'description' => 'Sparse fieldset: a comma-separated list of the fields to return (id is always kept). fields[<type>] works for every type in the answer.', 'schema' => ['type' => 'string']];
+        return ['name' => "fields[{$d->slug}]", 'in' => 'query', 'description' => 'Sparse fieldset (id is always kept); fields[<type>] works for every type in the answer.', 'schema' => ['type' => 'string']];
     }
 
     /** @return array<string, mixed> */
@@ -290,7 +294,18 @@ final class OpenApi
     {
         $out = [];
         foreach ($statuses as $status) {
-            $out[(string) $status] = $this->jsonResponse(self::errorText($status), ['$ref' => '#/components/schemas/Error']);
+            $out[(string) $status] = ['$ref' => "#/components/responses/Error{$status}"];
+        }
+
+        return $out;
+    }
+
+    /** @return array<string, array<string, mixed>> */
+    private function errorResponses(): array
+    {
+        $out = [];
+        foreach ([400, 401, 403, 404, 422, 429] as $status) {
+            $out["Error{$status}"] = $this->jsonResponse(self::errorText($status), ['$ref' => '#/components/schemas/Error']);
         }
 
         return $out;
